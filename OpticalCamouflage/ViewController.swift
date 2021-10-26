@@ -1,10 +1,11 @@
 import UIKit
-import simd
 import Vision
 import Accelerate
 
 fileprivate struct Const {
-    static let imageSize = 513
+    static let imageLength = 513
+    static let imageSize = CGSize(width: imageLength, height: imageLength)
+    
     //    static let objectLabel = 5    // bottle
     static let objectLabel = 15    // person
     
@@ -55,6 +56,8 @@ class ViewController: UIViewController {
         // キャプチャ開始
         imageCapture.delegate = self
         imageCapture.session.startRunning()
+        
+        self.medianImage = CGImage.monoColor(.white, size: Const.imageSize)
     }
 }
 
@@ -63,10 +66,10 @@ extension ViewController: ImageCaptureDelegate {
     func captureOutput(ciimage: CIImage) {
         // 右回転して向きを縦に直す
         let rotatedImage = ciimage.oriented(.right)
-        guard let croppedImage = rotatedImage.crop(frame: CGRect(x: Int(rotatedImage.extent.size.width) / 2 - Const.imageSize / 2,
-                                                                 y: Int(rotatedImage.extent.size.height) / 2 - Const.imageSize / 2,
-                                                                 width: Const.imageSize,
-                                                                 height: Const.imageSize)) else {
+        
+        guard let croppedImage = rotatedImage.crop(frame: CGRect(origin: CGPoint(x: Int(rotatedImage.extent.size.width) / 2 - Const.imageLength / 2,
+                                                                                 y: Int(rotatedImage.extent.size.height) / 2 - Const.imageLength / 2),
+                                                                 size: Const.imageSize)) else {
             return
         }
         // 入力画像を生成
@@ -150,7 +153,7 @@ private extension ViewController {
     func createMaskImage(segmentedMap: MLMultiArray) -> CIImage? {
         
         let size = segmentedMap.shape[0].intValue * segmentedMap.shape[1].intValue
-        assert(size == (Const.imageSize * Const.imageSize))
+        assert(size == (Const.imageLength * Const.imageLength))
         
         // 目的の物体のラベルを白(255)、それ以外を黒(0)とする画素値配列を作る
         var pixels = [UInt8](repeating: 0, count: size)
@@ -159,7 +162,7 @@ private extension ViewController {
         }
         
         // 画素値配列からマスク画像生成
-        guard let segmentedImage = createCGImage(from: &pixels, width: Const.imageSize, height: Const.imageSize) else {
+        guard let segmentedImage = createCGImage(from: &pixels, width: Const.imageLength, height: Const.imageLength) else {
             return nil
         }
         
@@ -208,7 +211,7 @@ private extension ViewController {
         guard let opticalCamouflageImage = compositeFilter.outputImage else { return nil }
         
         return ciContext.createCGImage(opticalCamouflageImage,
-                                       from: CGRect(origin: .zero, size: CGSize(width: Const.imageSize, height: Const.imageSize)))
+                                       from: CGRect(origin: .zero, size: Const.imageSize))
     }
     
     /// 画素値の配列からCGImag(グレースケール)を作る
